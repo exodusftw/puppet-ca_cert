@@ -35,37 +35,74 @@ describe 'ca_cert', :type => :class do
     end
   end
   context "on a RedHat based OS" do
-    let :facts do
-      {
-        :osfamily => 'RedHat',
-        :operatingsystemmajrelease => '6',
-      }
-    end
-
-    it { is_expected.to contain_ca_cert__params }
-    it { is_expected.to contain_package('ca-certificates') }
-
-    it { is_expected.to contain_file("trusted_certs").with(
-        'ensure' => 'directory',
-        'path'   => '/etc/pki/ca-trust/source/anchors',
-        'group'  => 'root',
-        'purge'  => 'false',
-      )
-    }
-
-    context "with purge_unmanaged_CAs set to true" do
-      let :params do
+    context "RHEL5" do
+      let :facts do
         {
-          :purge_unmanaged_CAs => 'true',
+          :osfamily => 'RedHat',
+          :operatingsystemmajrelease => '5',
         }
       end
+
+      it { is_expected.to contain_ca_cert__params }
+      it { is_expected.to contain_package('openssl-perl') }
+
+      it { is_expected.to contain_file("trusted_certs").with(
+          'ensure' => 'directory',
+          'path'   => '/etc/pki/tls/certs',
+          'group'  => 'root',
+          'purge'  => 'false',
+        )
+      }
+
+      context "with purge_unmanaged_CAs set to true" do
+        let :params do
+          {
+            :purge_unmanaged_CAs => 'true',
+          }
+        end
+        it { is_expected.to contain_file("trusted_certs").with(
+            'ensure' => 'directory',
+            'path'   => '/etc/pki/tls/certs',
+            'group'  => 'root',
+            'purge'  => 'true',
+          )
+        }
+      end
+    end
+
+    context "RHEL6" do
+      let :facts do
+        {
+          :osfamily => 'RedHat',
+          :operatingsystemmajrelease => '6',
+        }
+      end
+
+      it { is_expected.to contain_ca_cert__params }
+      it { is_expected.to contain_package('ca-certificates') }
+
       it { is_expected.to contain_file("trusted_certs").with(
           'ensure' => 'directory',
           'path'   => '/etc/pki/ca-trust/source/anchors',
           'group'  => 'root',
-          'purge'  => 'true',
+          'purge'  => 'false',
         )
       }
+
+      context "with purge_unmanaged_CAs set to true" do
+        let :params do
+          {
+            :purge_unmanaged_CAs => 'true',
+          }
+        end
+        it { is_expected.to contain_file("trusted_certs").with(
+            'ensure' => 'directory',
+            'path'   => '/etc/pki/ca-trust/source/anchors',
+            'group'  => 'root',
+            'purge'  => 'true',
+          )
+        }
+      end
     end
   end
   context "on a Solaris based OS" do
