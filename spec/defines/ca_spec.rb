@@ -3,8 +3,10 @@ require 'spec_helper'
 describe 'ca_cert::ca', :type => :define do
   HTTP_URL  = 'http://secure.globalsign.com/cacert/gsorganizationvalsha2g2r1.crt'
   DEBIAN_CA_FILE = '/usr/local/share/ca-certificates/Globalsign_Org_Intermediate.crt'
-  REDHAT_CA_FILE = '/etc/pki/ca-trust/source/anchors/Globalsign_Org_Intermediate.crt'
-  DISTRUSTED_REDHAT_CA_FILE = '/etc/pki/ca-trust/source/blacklist/Globalsign_Org_Intermediate.crt'
+  REDHAT5_CA_FILE = '/etc/pki/tls/certs/Globalsign_Org_Intermediate.pem'
+  REDHAT6_CA_FILE = '/etc/pki/ca-trust/source/anchors/Globalsign_Org_Intermediate.crt'
+  DISTRUSTED_REDHAT5_CA_FILE = '/etc/pki/ca-trust/source/blacklist/Globalsign_Org_Intermediate.pem'
+  DISTRUSTED_REDHAT6_CA_FILE = '/etc/pki/ca-trust/source/blacklist/Globalsign_Org_Intermediate.crt'
   GLOBALSIGN_ORG_CA = '-----BEGIN CERTIFICATE-----
 MIIEaTCCA1GgAwIBAgILBAAAAAABRE7wQkcwDQYJKoZIhvcNAQELBQAwVzELMAkG
 A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv
@@ -44,13 +46,6 @@ K1pp74P1S8SqtCr4fKGxhZSM9AyHDPSsQPhZSZg=
     {
       :osfamily => 'Debian',
       :operatingsystem => 'Ubuntu',
-    }
-  end
-
-  let :redhat_facts do
-    {
-      :osfamily => 'RedHat',
-      :operatingsystem => 'RedHat',
     }
   end
 
@@ -132,62 +127,138 @@ K1pp74P1S8SqtCr4fKGxhZSM9AyHDPSsQPhZSZg=
     end
 
     context "On RedHat based systems" do
-      let :facts do redhat_facts end
-      let :params do
-        {
-          :source => HTTP_URL
-        }
-      end
-      it { is_expected.to contain_class("ca_cert") }
-      it { is_expected.to contain_class("ca_cert::params") }
-
-      describe 'with a remote certificate' do
-        let :params do
+      context "RHEL5" do
+        let :facts do
           {
-            :source => HTTP_URL,
+            :osfamily => 'RedHat',
+            :operatingsystem => 'RedHat',
+            :operatingsystemmajrelease => '5',
           }
         end
 
-        it { is_expected.to contain_exec("get_Globalsign_Org_Intermediate.crt").with(
-            'creates' => REDHAT_CA_FILE,
-            'command' => "wget  -O #{REDHAT_CA_FILE} #{HTTP_URL} 2> /dev/null",
+        let :params do
+          {
+            :source => HTTP_URL
+          }
+        end
+        it { is_expected.to contain_class("ca_cert") }
+        it { is_expected.to contain_class("ca_cert::params") }
+
+        describe 'with a remote certificate' do
+          let :params do
+            {
+              :source => HTTP_URL,
+            }
+          end
+
+          it { is_expected.to contain_exec("get_Globalsign_Org_Intermediate.pem").with(
+              'creates' => REDHAT5_CA_FILE,
+              'command' => "wget  -O #{REDHAT5_CA_FILE} #{HTTP_URL} 2> /dev/null",
+            ) }
+          it { is_expected.not_to contain_file(REDHAT5_CA_FILE) }
+        end
+        describe 'with the certificate delivered as a string' do
+          let :params do
+            {
+              :source  => 'text',
+              :ca_text => GLOBALSIGN_ORG_CA,
+            }
+          end
+          it { is_expected.to contain_file('Globalsign_Org_Intermediate.pem').with(
+            'ensure'  => 'present',
+            'content' => GLOBALSIGN_ORG_CA,
+            'path'    => REDHAT5_CA_FILE,
           ) }
-        it { is_expected.not_to contain_file(REDHAT_CA_FILE) }
+        end
+        describe "when removing the CA cert" do
+          let :params do
+            {
+              :ensure => 'absent',
+            }
+          end
+          it { is_expected.to contain_file(REDHAT5_CA_FILE).with(
+            'ensure' => 'absent'
+          )}
+        end
+        describe "when explicitly distrusting a certificate" do
+          let :params do
+            {
+              :source => HTTP_URL,
+              :ensure => 'distrusted',
+            }
+          end
+          it { is_expected.to contain_exec("get_Globalsign_Org_Intermediate.pem").with(
+            'creates' => DISTRUSTED_REDHAT5_CA_FILE,
+            'command' => "wget  -O #{DISTRUSTED_REDHAT5_CA_FILE} #{HTTP_URL} 2> /dev/null",
+          )}
+        end
       end
-      describe 'with the certificate delivered as a string' do
-        let :params do
+
+      context "RHEL6" do
+        let :facts do
           {
-            :source  => 'text',
-            :ca_text => GLOBALSIGN_ORG_CA,
+            :osfamily => 'RedHat',
+            :operatingsystem => 'RedHat',
+            :operatingsystemmajrelease => '6',
           }
         end
-        it { is_expected.to contain_file('Globalsign_Org_Intermediate.crt').with(
-          'ensure'  => 'present',
-          'content' => GLOBALSIGN_ORG_CA,
-          'path'    => REDHAT_CA_FILE,
-        ) }
-      end
-      describe "when removing the CA cert" do
+
         let :params do
           {
-            :ensure => 'absent',
+            :source => HTTP_URL
           }
         end
-        it { is_expected.to contain_file(REDHAT_CA_FILE).with(
-          'ensure' => 'absent'
-        )}
-      end
-      describe "when explicitly distrusting a certificate" do
-        let :params do
-          {
-            :source => HTTP_URL,
-            :ensure => 'distrusted',
-          }
+        it { is_expected.to contain_class("ca_cert") }
+        it { is_expected.to contain_class("ca_cert::params") }
+
+        describe 'with a remote certificate' do
+          let :params do
+            {
+              :source => HTTP_URL,
+            }
+          end
+
+          it { is_expected.to contain_exec("get_Globalsign_Org_Intermediate.crt").with(
+              'creates' => REDHAT6_CA_FILE,
+              'command' => "wget  -O #{REDHAT6_CA_FILE} #{HTTP_URL} 2> /dev/null",
+            ) }
+          it { is_expected.not_to contain_file(REDHAT6_CA_FILE) }
         end
-        it { is_expected.to contain_exec("get_Globalsign_Org_Intermediate.crt").with(
-          'creates' => DISTRUSTED_REDHAT_CA_FILE,
-          'command' => "wget  -O #{DISTRUSTED_REDHAT_CA_FILE} #{HTTP_URL} 2> /dev/null",
-        )}
+        describe 'with the certificate delivered as a string' do
+          let :params do
+            {
+              :source  => 'text',
+              :ca_text => GLOBALSIGN_ORG_CA,
+            }
+          end
+          it { is_expected.to contain_file('Globalsign_Org_Intermediate.crt').with(
+            'ensure'  => 'present',
+            'content' => GLOBALSIGN_ORG_CA,
+            'path'    => REDHAT6_CA_FILE,
+          ) }
+        end
+        describe "when removing the CA cert" do
+          let :params do
+            {
+              :ensure => 'absent',
+            }
+          end
+          it { is_expected.to contain_file(REDHAT6_CA_FILE).with(
+            'ensure' => 'absent'
+          )}
+        end
+        describe "when explicitly distrusting a certificate" do
+          let :params do
+            {
+              :source => HTTP_URL,
+              :ensure => 'distrusted',
+            }
+          end
+          it { is_expected.to contain_exec("get_Globalsign_Org_Intermediate.crt").with(
+            'creates' => DISTRUSTED_REDHAT6_CA_FILE,
+            'command' => "wget  -O #{DISTRUSTED_REDHAT6_CA_FILE} #{HTTP_URL} 2> /dev/null",
+          )}
+        end
       end
     end
   end
