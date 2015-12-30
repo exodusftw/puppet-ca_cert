@@ -38,6 +38,7 @@ describe 'ca_cert', :type => :class do
     let :facts do
       {
         :osfamily => 'RedHat',
+        :operatingsystemmajrelease => '6',
       }
     end
 
