@@ -17,5 +17,6 @@ class ca_cert::update {
     logoutput   => 'on_failure',
     refreshonly => true,
     path        => ['/usr/sbin', '/usr/bin', '/bin'],
+    require     => Package[$ca_cert::params::ca_package],
   }
 }
